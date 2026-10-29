@@ -14,6 +14,12 @@ typedef enum
     MOTOR_HOMMING,
 } motor_state_t;
 
+typedef struct {
+    motor_state_t state;
+    uint32_t frequency_hz;
+    bool limit_switch_active;
+} motion_status_t;
+
 void motion_controller_init(
     gpio_num_t dir_pin, 
     gpio_num_t step_pin,
@@ -21,7 +27,8 @@ void motion_controller_init(
     gpio_num_t limit_pin
     );
 esp_err_t motion_set_freq(uint32_t target_freq);
-esp_err_t motion_move_to(int32_t steps_cnt);
+esp_err_t motion_move(int32_t steps_cnt);
 esp_err_t motion_home_position(void);
-
+esp_err_t motion_stop(void);
+esp_err_t motion_get_status(motion_status_t *status);
 motor_state_t motion_get_state(void);

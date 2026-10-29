@@ -112,7 +112,7 @@ esp_err_t motion_set_freq(uint32_t target_freq)
     }
 }
 
-esp_err_t motion_move_to(int32_t steps_cnt)
+esp_err_t motion_move(int32_t steps_cnt)
 {
     motor_state_t state = atomic_load(&controller.motor_state);
     if (state == MOTOR_ON_STOP || state == MOTOR_HOME)
@@ -145,6 +145,31 @@ motor_state_t motion_get_state(void)
     return atomic_load(&controller.motor_state);
 }
 
+esp_err_t motion_stop(void) {
+    motor_state_t state = atomic_load(&controller.motor_state);
+    if (state == MOTOR_LIMIT_HIT || state == MOTOR_BACKOF || state == MOTOR_HOME) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (state == MOTOR_ON_STOP) {
+        return ESP_OK;
+    }
+    atomic_store(&controller.motor_state, MOTOR_ON_STOP);
+    return rmt_disable(step_channel);
+}
+
+esp_err_t motion_get_status(motion_status_t *status)
+{
+    if (status == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    status->state = atomic_load(&controller.motor_state);
+    status->frequency_hz = controller.current_freq;
+    status->limit_switch_active =
+        gpio_get_level(controller.limit_pin) == HIGH;
+
+    return ESP_OK;
+}
 // PRIVATE HELPERS
 
 static void motion_task(void *arg)
@@ -290,12 +315,6 @@ static esp_err_t go_home_postion(void)
         &controller.step_symbol,
         sizeof(controller.step_symbol),
         &tx_config);
-}
-
-static void stop_motor(void)
-{
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0);
-    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
 }
 
 static void limit_reached(void *arg)
